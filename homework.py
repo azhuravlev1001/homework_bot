@@ -55,7 +55,8 @@ def check_tokens() -> bool:
     elif not TELEGRAM_TOKEN:
         logger.critical('Отсутствует обязательная переменная TELEGRAM_TOKEN')
     elif not TELEGRAM_CHAT_ID:
-        logger.critical('Отсутствует обязательная переменная TELEGRAM_CHAT_ID')
+        logger.critical(
+            'Отсутствует обязательная переменная TELEGRAM_CHAT_ID')
     else:
         logger.debug('Проверка ключей проведена')
     return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
@@ -68,7 +69,9 @@ def get_api_answer(current_timestamp):
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
         if response.status_code != 200:
-            raise Exception(f'Сбой при обращении к URL {response.request.url}; код ответа: {response.status_code} - {response.reason}; параметры: {params}')
+            raise Exception(f'Сбой при обращении к URL {response.request.url}'
+                            f'; код ответа: {response.status_code} - '
+                            f'{response.reason}; параметры: {params}')
         logger.debug('Ответ от сервера получен')
         response = response.json()
     except TypeError:
@@ -91,11 +94,13 @@ def check_response(response):
     else:
         raise TypeError(f'Неправильный тип данных ответа: {type(response)}')
     if isinstance(response['homeworks'], list):
-        logger.debug(f'Проверен тип данных ответа с ключом "homeworks": {type(response["homeworks"])}')
+        logger.debug('Проверен тип данных ответа с ключом "homeworks": '
+                     f'{type(response["homeworks"])}')
         return response.get('homeworks')[0]
     else:
         logger.info('Ответ не содержит перечень домашних работ')
-        raise TypeError(f'Неправильный тип данных ответа с ключом "homeworks": {type(response["homeworks"])}')
+        raise TypeError('Неправильный тип данных ответа с ключом "homeworks":'
+                        f'{type(response["homeworks"])}')
 
 
 def parse_status(homework):
@@ -103,11 +108,14 @@ def parse_status(homework):
     if 'homework_name' not in homework:
         raise KeyError('Отсутствует название работы')
     if 'status' not in homework:
-        raise KeyError(f'Отсутствует информация о статусе работы {homework.get("homework_name")}')
+        raise KeyError('Отсутствует информация о статусе работы'
+                       f'{homework.get("homework_name")}')
     verdict = HOMEWORK_STATUSES.get(homework.get('status'))
     if not verdict:
-        raise KeyError(f'Отсутствует документированный статус проверки работы "{homework.get("homework_name")}"')
-    message = f'Изменился статус проверки работы "{homework.get("homework_name")}".\n{verdict}'
+        raise KeyError('Отсутствует документированный статус'
+                       f'проверки работы "{homework.get("homework_name")}"')
+    message = ('Изменился статус проверки работы'
+               f'"{homework.get("homework_name")}".\n{verdict}')
     logger.info(
         f'Сообщение в Телеграм для "{homework.get("lesson_name")[16:]}" '
         'сформировано...'
