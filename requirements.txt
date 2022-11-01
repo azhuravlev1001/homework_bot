@@ -1,7 +1,6 @@
 APScheduler==3.6.3
 atomicwrites==1.4.1
 attrs==22.1.0
-backports.zoneinfo==0.2.1
 black==22.10.0
 cachetools==4.2.2
 certifi==2022.9.24
