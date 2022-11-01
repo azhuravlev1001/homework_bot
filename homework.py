@@ -26,22 +26,10 @@ HOMEWORK_STATUSES = {
 
 
 current_timestamp = 1549962000
-previous_homework = []
-
-
-ErrorIsNotInTelegram = {
-    'URL-адрес недоступен': True,
-    'Сбой при обращении к': True,
-    'Ключ "homework_name"': True,
-    'Ключ "homework_statu': True,
-    'Отсутствует документ': True,
-    'Сбой при отправке со': True,
-    'Сбой в работе програ': True,
-}
 
 
 def get_stream_handler():
-    """Обработчик логирования..."""
+    """Обработчик логирования."""
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(
         logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -54,25 +42,14 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(get_stream_handler())
 
 
-def SendErrorToTelegram(message):
-    """Направление ошибки уровня ERROR в Телеграм, если ее там еще нет..."""
-    if ErrorIsNotInTelegram[message[:20]]:
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-        bot.send_message(TELEGRAM_CHAT_ID, message)
-        ErrorIsNotInTelegram[message[:20]] = False
-    return
-
-
-def LogErrorAndSendToTelegram(message):
-    """Логирование и направление ошибки в Телеграм, если ее там еще нет..."""
+def log_and_send_error_to_Telegram(bot, message):
+    """Логирование и направление ошибки в Телеграм."""
     logger.error(message)
-    SendErrorToTelegram(message)
-    return
+    send_message(bot, message)
 
 
-def check_tokens():
-    """Проверка наличия ключей..."""
-    ValuesExist = PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
+def check_tokens() -> bool:
+    """Проверка наличия ключей."""
     if not PRACTICUM_TOKEN:
         logger.critical('Отсутствует обязательная переменная PRACTICUM_TOKEN')
     elif not TELEGRAM_TOKEN:
@@ -81,86 +58,99 @@ def check_tokens():
         logger.critical('Отсутствует обязательная переменная TELEGRAM_CHAT_ID')
     else:
         logger.debug('Проверка ключей проведена')
-    return bool(ValuesExist)
+    return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
 
 
 def get_api_answer(current_timestamp):
-    """Направление запроса и получение ответа..."""
+    """Направление запроса и получение ответа."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-    if response.status_code == 200:
+    try:
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        if response.status_code != 200:
+            raise Exception(f'Сбой при обращении к URL {response.request.url}; код ответа: {response.status_code} - {response.reason}; параметры: {params}')
         logger.debug('Ответ от сервера получен')
-        return response.json()
-    elif response.status_code == 404:
-        raise LogErrorAndSendToTelegram('URL-адрес недоступен')
-    else:
-        raise LogErrorAndSendToTelegram('Сбой при обращении к URL')
+        response = response.json()
+    except TypeError:
+        logger.debug('Ответ от сервера не может быть обработан')
+    return response
 
 
 def check_response(response):
-    """Проверка ответа..."""
-    if type(response['homeworks']) == list:
-        logger.debug('Проверен тип данных ответа: ОK')
-        return response.get('homeworks')
+    """Проверка ответа."""
+    if response['homeworks']:
+        logger.debug('Ответ содержит ключ "homeworks"')
+    else:
+        raise KeyError('В ответе отсутствует ключ "homeworks"')
+    if response['current_date']:
+        logger.debug('Ответ содержит текущую дату (ключ "current_date")')
+    else:
+        raise KeyError('Ответ не содержит текущую дату (ключ "current_date")')
+    if isinstance(response, dict):
+        logger.debug(f'Тип данных ответа правильный: {type(response)}')
+    else:
+        raise TypeError(f'Неправильный тип данных ответа: {type(response)}')
+    if isinstance(response['homeworks'], list):
+        logger.debug(f'Проверен тип данных ответа с ключом "homeworks": {type(response["homeworks"])}')
+        return response.get('homeworks')[0]
     else:
         logger.info('Ответ не содержит перечень домашних работ')
-        raise TypeError
+        raise TypeError(f'Неправильный тип данных ответа с ключом "homeworks": {type(response["homeworks"])}')
 
 
 def parse_status(homework):
-    """Определение статуса работы..."""
-    homework_name = homework.get('homework_name')
-    homework_status = homework.get('status')
-    if not homework_name:
-        raise KeyError
-    if not homework_status:
-        LogErrorAndSendToTelegram('Ключ "homework_status" отсутствует')
-        raise KeyError
-    verdict = HOMEWORK_STATUSES.get(homework_status)
+    """Определение статуса работы."""
+    if 'homework_name' not in homework:
+        raise KeyError('Отсутствует название работы')
+    if 'status' not in homework:
+        raise KeyError(f'Отсутствует информация о статусе работы {homework.get("homework_name")}')
+    verdict = HOMEWORK_STATUSES.get(homework.get('status'))
     if not verdict:
-        raise LogErrorAndSendToTelegram(
-            'Отсутствует документированный статус'
-            f'проверки работы "{homework_name}"'
-        )
+        raise KeyError(f'Отсутствует документированный статус проверки работы "{homework.get("homework_name")}"')
+    message = f'Изменился статус проверки работы "{homework.get("homework_name")}".\n{verdict}'
     logger.info(
-        f'Сообщение в Телеграм для "{homework.get("lesson_name")[16:]}"'
+        f'Сообщение в Телеграм для "{homework.get("lesson_name")[16:]}" '
         'сформировано...'
     )
-    return (f'Изменился статус проверки работы "{homework_name}". {verdict}')
+    return message
 
 
 def send_message(bot, message):
     """Направление сообщения в Телеграм..."""
-    logger.info('Отправлено')
-    bot.send_message(TELEGRAM_CHAT_ID, message)
-    if not bot.send_message:
-        raise LogErrorAndSendToTelegram(
-            'Сбой при отправке сообщения в Телеграм'
-        )
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+    except Exception:
+        logger.error('Сбой при отправке сообщения в Телеграм')
+    else:
+        logger.info('Отправлено')
     return
 
 
 def main():
-    """Главная функция бота..."""
+    """Главная функция бота."""
+    prior_hw = {}
+    prior_error = ''
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     while True and check_tokens():
         try:
-            global previous_homework
             api_answer = get_api_answer(current_timestamp)
-            homework_list = check_response(api_answer)
-            if homework_list != previous_homework:
-                previous_homework = homework_list
-                for homework in homework_list:
-                    message = parse_status(homework)
-                    send_message(bot, message)
+            hw = check_response(api_answer)
+            hw_is_changed = hw != prior_hw
+            if hw_is_changed:
+                message = parse_status(hw)
+                send_message(bot, message)
+                prior_hw = hw
             else:
                 logger.debug(
                     'Сообщение в Телеграм не отправлено, обновлений нет'
                 )
         except Exception as error:
-            raise LogErrorAndSendToTelegram(
-                f'Сбой в работе программы: {error}')
+            error_was_sent_to_Telegram_before = error == prior_error
+            if error_was_sent_to_Telegram_before:
+                logger.error(error)
+            else:
+                log_and_send_error_to_Telegram(bot=bot, message=error)
+                prior_error = error
         time.sleep(RETRY_TIME)
     return
 
