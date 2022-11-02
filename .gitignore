@@ -112,6 +112,7 @@ env.bak/
 venv.bak/
 tests/
 
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -151,3 +152,5 @@ dmypy.json
 static/
 posts/static/
 media/
+
+my_exp.py
