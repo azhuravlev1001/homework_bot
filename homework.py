@@ -114,11 +114,13 @@ def parse_status(homework):
     if not verdict:
         raise KeyError('Отсутствует документированный статус'
                        f'проверки работы "{homework.get("homework_name")}"')
-    message = ('Изменился статус проверки работы'
-               f'"{homework.get("homework_name")}".\n{verdict}')
+    message = (
+        'Изменился статус проверки работы'
+        f' "{homework.get("homework_name")}".\n{verdict}'
+    )
     logger.info(
-        f'Сообщение в Телеграм для "{homework.get("lesson_name")[16:]}" '
-        'сформировано...'
+        'Сообщение в Телеграм для'
+        f' "{homework.get("lesson_name")[16:]}" сформировано...'
     )
     return message
 
