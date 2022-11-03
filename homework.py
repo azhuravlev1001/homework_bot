@@ -97,6 +97,10 @@ def check_response(response):
         logger.debug(
             'Ответ сервера содержит сведения о домашних работах'
         )
+    else:
+        logger.info(
+            'Ответ сервера не содержит сведения о домашних работах'
+        )
     if 'current_date' not in response:
         raise KeyError(
             'Ответ сервера не содержит текущую дату '
@@ -166,14 +170,12 @@ def main():
     while True:
         try:
             api_answer = get_api_answer(current_timestamp)
-            if not api_answer['homeworks']:
-                raise IndexError(
-                    'Ответ сервера не содержит сведения о домашних работах'
-                )
-            hw = check_response(api_answer)[0]
-            current_timestamp = api_answer['current_date']
-            hw_is_changed = hw != prior_hw
-            if hw_is_changed:
+            hw = check_response(api_answer)
+            if len(hw) == 0:
+                hw = prior_hw
+            else:
+                hw = hw[0]
+            if hw != prior_hw:
                 message = parse_status(hw)
                 send_message(bot, message)
                 prior_hw = hw
@@ -181,9 +183,9 @@ def main():
                 logger.debug(
                     'Сообщение в Телеграм не отправлено, обновлений нет'
                 )
+            current_timestamp = api_answer['current_date']
         except Exception as error:
-            error_was_sent_to_Telegram_before = str(error) == prior_error
-            if error_was_sent_to_Telegram_before:
+            if str(error) == prior_error:
                 logger.error(error)
             else:
                 log_and_send_error_to_Telegram(bot=bot, message=error)
