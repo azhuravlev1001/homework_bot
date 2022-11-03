@@ -97,10 +97,6 @@ def check_response(response):
         logger.debug(
             'Ответ сервера содержит сведения о домашних работах'
         )
-    else:
-        raise IndexError(
-            'Ответ сервера не содержит сведения о домашних работах'
-        )
     if 'current_date' not in response:
         raise KeyError(
             'Ответ сервера не содержит текущую дату '
@@ -170,8 +166,12 @@ def main():
     while True:
         try:
             api_answer = get_api_answer(current_timestamp)
-            current_timestamp = api_answer['current_date']
+            if not api_answer['homeworks']:
+                raise IndexError(
+                    'Ответ сервера не содержит сведения о домашних работах'
+                )
             hw = check_response(api_answer)[0]
+            current_timestamp = api_answer['current_date']
             hw_is_changed = hw != prior_hw
             if hw_is_changed:
                 message = parse_status(hw)
