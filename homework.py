@@ -163,8 +163,7 @@ def main():
     """Главная функция бота."""
     if not check_tokens():
         sys.exit('Проблемы с токенами! Выход из программы')
-    prior_hw = {}
-    prior_error = ''
+    prior_hw, prior_error = {}, ''
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time()) - 30 * 24 * 60 * 60
     while True:
@@ -173,10 +172,8 @@ def main():
             hw = check_response(api_answer)
             if len(hw) == 0:
                 hw = prior_hw
-            else:
-                hw = hw[0]
             if hw != prior_hw:
-                message = parse_status(hw)
+                message = parse_status(hw[0])
                 send_message(bot, message)
                 prior_hw = hw
             else:
@@ -191,7 +188,6 @@ def main():
                 log_and_send_error_to_Telegram(bot=bot, message=error)
                 prior_error = str(error)
         time.sleep(RETRY_TIME)
-    return
 
 
 if __name__ == '__main__':
